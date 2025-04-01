@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carga de Stock Diario - V. Luzuriaga</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 750px;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h2 {
+             text-align: center;
+             color: #333;
+             margin-bottom: 25px;
+        }
+        .form-header {
+            background-color: #eef;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px 20px; /* Espacio vertical y horizontal */
+        }
+        .form-header label {
+            font-weight: bold;
+            margin-right: 8px;
+            color: #444;
+            display: block; /* Asegura que la etiqueta esté encima del input/select */
+            margin-bottom: 5px;
+        }
+        /* Contenedor para cada campo de la cabecera */
+        .header-field-container {
+            display: flex;
+            flex-direction: column; /* Etiqueta arriba, input abajo */
+            flex: 1 1 calc(50% - 20px); /* Intenta 2 columnas */
+            min-width: 250px;
+        }
+        .form-header input[type="date"],
+        .form-header select,
+        .form-header input[type="text"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 100%; /* Ocupar todo el ancho del contenedor */
+            box-sizing: border-box; /* Incluir padding/border en el ancho */
+        }
+        /* Ocultar el campo "Otro Responsable" por defecto */
+        #otroResponsableContainer {
+            display: none;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px 12px;
+            text-align: left;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            color: #333;
+        }
+        tbody tr:nth-child(odd) {
+            background-color: #f9f9f9;
+        }
+        td:first-child {
+             color: #555;
+        }
+        input.quantity-input {
+            width: calc(100% - 12px);
+            padding: 8px 6px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            text-align: right;
+        }
+        input:focus, select:focus {
+             border-color: #007bff;
+             box-shadow: 0 0 0 2px rgba(0,123,255,.25);
+             outline: none;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 12px 25px;
+            border-radius: 5px;
+            display: block;
+            width: 100%;
+            margin-top: 15px;
+            transition: background-color 0.2s ease;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        #mensaje {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 5px;
+            text-align: center;
+            display: none;
+            font-weight: bold;
+        }
+        #mensaje.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        #mensaje.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Registrar Stock Diario</h2>
+
+    <form id="stockFormMultiple" novalidate>
+        <div class="form-header">
+            <div class="header-field-container">
+                <label for="fecha">Fecha:</label>
+                <input type="date" id="fecha" name="fecha" required>
+            </div>
+            <div class="header-field-container">
+                <label for="responsableSelect">Responsable:</label>
+                <select id="responsableSelect" name="responsableSelect" required>
+                    <option value="" disabled selected>-- Selecciona Responsable --</option>
+                    <option value="Dylan Moya">Dylan Moya</option>
+                    <option value="Gabriel Mansilla">Gabriel Mansilla</option>
+                    <option value="Pablo Jara">Pablo Jara</option>
+                    <option value="Brian Gómez">Brian Gómez</option>
+                    <option value="Rodrigo Miranda">Rodrigo Miranda</option>
+                    <option value="Matías Olivera">Matías Olivera</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+            <div class="header-field-container" id="otroResponsableContainer">
+                <label for="responsableOtro">Otro Responsable:</label>
+                <input type="text" id="responsableOtro" name="responsableOtro" placeholder="Ingrese nombre">
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Cantidad</th>
+                </tr>
+            </thead>
+            <tbody id="product-list">
+                </tbody>
+        </table>
+
+        <button type="submit" id="submitButton">Guardar Todos los Registros</button>
+        <div id="mensaje"></div>
+    </form>
+</div>
+
+<script>
+    // --- Lista de Productos ---
+    const productList = [
+        "TRICAPA 280L (Beige)", "TRICAPA 470L (Beige)"
+    ];
+
+    // --- URL del Script ---
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbzRbuag3BiapDoBQgbxmdTHSNY0C7EI3uWiOBdFlFUp-9AVZfXSMC76SmS-iAunzi2L/exec';
+
+    // --- Elementos del DOM ---
+    const form = document.getElementById('stockFormMultiple');
+    const productTableBody = document.getElementById('product-list');
+    const mensajeDiv = document.getElementById('mensaje');
+    const submitButton = document.getElementById('submitButton');
+    const fechaInput = document.getElementById('fecha');
+    const responsableSelect = document.getElementById('responsableSelect');
+    const otroResponsableContainer = document.getElementById('otroResponsableContainer');
+    const responsableOtroInput = document.getElementById('responsableOtro');
+
+    // --- Generar filas de la tabla dinámicamente ---
+    productList.forEach(productName => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${productName}</td>
+            <td><input type="number" class="quantity-input" data-product="${productName.replace(/"/g, '&quot;')}" placeholder="0" min="0" step="1"></td>
+        `;
+        productTableBody.appendChild(row);
+    });
+
+    // --- Establecer Fecha de Hoy Automáticamente ---
+    const setTodayDate = () => {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        fechaInput.value = `${yyyy}-${mm}-${dd}`;
+    };
+    setTodayDate();
+
+    // --- Lógica para mostrar/ocultar campo "Otro Responsable" ---
+    responsableSelect.addEventListener('change', function() {
+        if (this.value === 'Otro') {
+            otroResponsableContainer.style.display = 'block';
+            responsableOtroInput.required = true;
+        } else {
+            otroResponsableContainer.style.display = 'none';
+            responsableOtroInput.required = false;
+            responsableOtroInput.value = '';
+        }
+         updateNavigableElements();
+    });
+
+    // --- Lógica para Navegación con Tecla Enter ---
+    let navigableElements = [];
+
+    const updateNavigableElements = () => {
+         navigableElements = Array.from(
+             form.querySelectorAll(
+                 'input[type=date], select#responsableSelect, input#responsableOtro:not([style*="display: none"]), .quantity-input, button[type=submit]'
+             )
+         );
+        navigableElements = navigableElements.filter(el => {
+             if (el.id === 'responsableOtro') {
+                 return otroResponsableContainer.style.display !== 'none';
+             }
+             return true;
+         });
+    };
+
+    updateNavigableElements();
+
+    form.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            const currentElement = event.target;
+             if (currentElement.matches('input[type=date], select#responsableSelect, input#responsableOtro, .quantity-input')) {
+                event.preventDefault();
+                const currentIndex = navigableElements.indexOf(currentElement);
+                if (currentIndex > -1) {
+                     const nextIndex = currentIndex + 1;
+                     if (nextIndex < navigableElements.length) {
+                         const nextElement = navigableElements[nextIndex];
+                         nextElement.focus();
+                         if (typeof nextElement.select === 'function') {
+                             try { nextElement.select(); } catch (e) { console.log("No se pudo seleccionar:", nextElement); }
+                         }
+                     }
+                 } else {
+                     console.warn("Elemento actual no encontrado:", currentElement);
+                 }
+            }
+        }
+    });
+
+    // --- Lógica para Envío del Formulario ---
+    form.addEventListener('submit', e => {
+        e.preventDefault();
+        mensajeDiv.style.display = 'none';
+        mensajeDiv.className = '';
+
+        // --- Validación Manual ---
+        let isValid = true;
+        let firstInvalidElement = null;
+
+        if (!fechaInput.value) {
+            isValid = false; if (!firstInvalidElement) firstInvalidElement = fechaInput;
+        }
+
+        let responsableValue = responsableSelect.value;
+        if (!responsableValue) {
+            isValid = false; if (!firstInvalidElement) firstInvalidElement = responsableSelect;
+        }
+
+        if (responsableValue === 'Otro') {
+            responsableValue = responsableOtroInput.value.trim();
+            if (!responsableValue) {
+                isValid = false; responsableOtroInput.required = true;
+                 if (!firstInvalidElement) firstInvalidElement = responsableOtroInput;
+            } else {
+                 responsableOtroInput.required = false;
+            }
+        } else {
+            responsableOtroInput.required = false;
+        }
+
+
+        if (!isValid) {
+            mensajeDiv.textContent = 'Por favor, complete los campos obligatorios (Fecha y Responsable).';
+            mensajeDiv.className = 'error';
+            mensajeDiv.style.display = 'block';
+            if (firstInvalidElement) { firstInvalidElement.focus(); }
+            return;
+        }
+
+        // --- Recolectar Cantidades ---
+        const quantityInputs = form.querySelectorAll('.quantity-input');
+        const entriesToSubmit = [];
+        quantityInputs.forEach(input => {
+            const productName = input.dataset.product;
+            const quantityValue = input.value.trim();
+            const numCantidad = Number(quantityValue);
+
+            if (quantityValue !== "" && !isNaN(numCantidad) && numCantidad !== 0) {
+                entriesToSubmit.push({ product: productName, quantity: numCantidad });
+            }
+        });
+
+        // --- Verificar si hay Cantidades ---
+        if (entriesToSubmit.length === 0) {
+            mensajeDiv.textContent = 'No se ingresaron cantidades válidas (distintas de cero).';
+            mensajeDiv.className = 'error';
+            mensajeDiv.style.display = 'block';
+             const firstQtyInput = form.querySelector('.quantity-input');
+             if(firstQtyInput) firstQtyInput.focus();
+            return;
+        }
+
+        // --- Preparar y Enviar Datos ---
+        submitButton.disabled = true;
+        submitButton.textContent = 'Guardando...';
+
+        const payload = {
+            fecha: fechaInput.value,
+            responsable: responsableValue,
+            entries: entriesToSubmit
+        };
+
+        fetch(scriptURL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', },
+            body: JSON.stringify(payload)
+        })
+        .then(response => {
+             if (!response.ok && response.type !== 'opaque' && response.type !== 'opaqueredirect') {
+                return response.json().then(errData => { throw new Error(errData.message || `Error ${response.status}`); });
+             }
+             if(response.type === 'opaque' || response.type === 'opaqueredirect') {
+                 return { result: 'success', message: `¡${entriesToSubmit.length} registros enviados! (Respuesta opaca)`};
+             }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Respuesta:', data);
+            mensajeDiv.textContent = data.message || `¡Procesamiento completado!`;
+            mensajeDiv.classList.add((data.result === 'error') ? 'error' : 'success');
+            mensajeDiv.style.display = 'block';
+
+            if (data.result !== 'error') {
+                quantityInputs.forEach(input => input.value = '');
+                const firstQtyInput = form.querySelector('.quantity-input');
+                if(firstQtyInput) firstQtyInput.focus();
+            }
+        })
+        .catch(error => {
+            console.error('Error en fetch!', error);
+            mensajeDiv.textContent = 'Error al enviar: ' + error.message;
+            mensajeDiv.classList.add('error');
+            mensajeDiv.style.display = 'block';
+        })
+        .finally(() => {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Guardar Todos los Registros';
+        });
+    });
+
+</script>
+
+</body>
+</html>
