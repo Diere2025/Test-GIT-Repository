@@ -191,7 +191,7 @@
     ];
 
     // --- URL del Script ---
-    const scriptURL = 'https://script.google.com/macros/s/AKfycbwWHM6VChnBcoVsSiP8YrQYPxADlAi8Phymc__C_yfGqfANs7kKk7D9n-REzefLuyx6/exec';
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbwWHM6VChnBcoVsSiP8YrQYPxADlAi8Phymc__C_yfGqfANs7kKk7D9n-REzefLuyx6/exec'; // URL que proporcionaste antes
 
     // --- Elementos del DOM ---
     const form = document.getElementById('stockFormMultiple');
@@ -215,7 +215,7 @@
 
     // --- Establecer Fecha de Hoy Automáticamente ---
     const setTodayDate = () => {
-        const today = new Date();
+        const today = new Date(); // Usa la fecha local del navegador
         const yyyy = today.getFullYear();
         const mm = String(today.getMonth() + 1).padStart(2, '0');
         const dd = String(today.getDate()).padStart(2, '0');
@@ -225,14 +225,10 @@
 
     // --- Lógica para mostrar/ocultar campo "Otro Responsable" ---
     responsableSelect.addEventListener('change', function() {
-        if (this.value === 'Otro') {
-            otroResponsableContainer.style.display = 'block';
-            responsableOtroInput.required = true;
-        } else {
-            otroResponsableContainer.style.display = 'none';
-            responsableOtroInput.required = false;
-            responsableOtroInput.value = '';
-        }
+        const isOtro = this.value === 'Otro';
+        otroResponsableContainer.style.display = isOtro ? 'block' : 'none';
+        responsableOtroInput.required = isOtro;
+        if (!isOtro) responsableOtroInput.value = '';
          updateNavigableElements();
     });
 
@@ -246,13 +242,10 @@
              )
          );
         navigableElements = navigableElements.filter(el => {
-             if (el.id === 'responsableOtro') {
-                 return otroResponsableContainer.style.display !== 'none';
-             }
+             if (el.id === 'responsableOtro') return otroResponsableContainer.style.display !== 'none';
              return true;
          });
     };
-
     updateNavigableElements();
 
     form.addEventListener('keydown', (event) => {
@@ -284,35 +277,19 @@
         mensajeDiv.className = '';
 
         // --- Validación Manual ---
-        let isValid = true;
-        let firstInvalidElement = null;
-
-        if (!fechaInput.value) {
-            isValid = false; if (!firstInvalidElement) firstInvalidElement = fechaInput;
-        }
-
+        let isValid = true; let firstInvalidElement = null;
+        if (!fechaInput.value) { isValid = false; if (!firstInvalidElement) firstInvalidElement = fechaInput; }
         let responsableValue = responsableSelect.value;
-        if (!responsableValue) {
-            isValid = false; if (!firstInvalidElement) firstInvalidElement = responsableSelect;
-        }
-
+        if (!responsableValue) { isValid = false; if (!firstInvalidElement) firstInvalidElement = responsableSelect; }
         if (responsableValue === 'Otro') {
             responsableValue = responsableOtroInput.value.trim();
-            if (!responsableValue) {
-                isValid = false; responsableOtroInput.required = true;
-                 if (!firstInvalidElement) firstInvalidElement = responsableOtroInput;
-            } else {
-                 responsableOtroInput.required = false;
-            }
-        } else {
-            responsableOtroInput.required = false;
-        }
-
+            if (!responsableValue) { isValid = false; responsableOtroInput.required = true; if (!firstInvalidElement) firstInvalidElement = responsableOtroInput;}
+            else { responsableOtroInput.required = false; }
+        } else { responsableOtroInput.required = false; }
 
         if (!isValid) {
             mensajeDiv.textContent = 'Por favor, complete los campos obligatorios (Fecha y Responsable).';
-            mensajeDiv.className = 'error';
-            mensajeDiv.style.display = 'block';
+            mensajeDiv.className = 'error'; mensajeDiv.style.display = 'block';
             if (firstInvalidElement) { firstInvalidElement.focus(); }
             return;
         }
@@ -324,7 +301,6 @@
             const productName = input.dataset.product;
             const quantityValue = input.value.trim();
             const numCantidad = Number(quantityValue);
-
             if (quantityValue !== "" && !isNaN(numCantidad) && numCantidad !== 0) {
                 entriesToSubmit.push({ product: productName, quantity: numCantidad });
             }
@@ -333,8 +309,7 @@
         // --- Verificar si hay Cantidades ---
         if (entriesToSubmit.length === 0) {
             mensajeDiv.textContent = 'No se ingresaron cantidades válidas (distintas de cero).';
-            mensajeDiv.className = 'error';
-            mensajeDiv.style.display = 'block';
+            mensajeDiv.className = 'error'; mensajeDiv.style.display = 'block';
              const firstQtyInput = form.querySelector('.quantity-input');
              if(firstQtyInput) firstQtyInput.focus();
             return;
@@ -343,50 +318,50 @@
         // --- Preparar y Enviar Datos ---
         submitButton.disabled = true;
         submitButton.textContent = 'Guardando...';
+        const payload = { fecha: fechaInput.value, responsable: responsableValue, entries: entriesToSubmit };
+        console.log("Enviando payload (no-cors):", JSON.stringify(payload)); // Log para depurar
 
-        const payload = {
-            fecha: fechaInput.value,
-            responsable: responsableValue,
-            entries: entriesToSubmit
-        };
-
+        // --- FETCH con mode: 'no-cors' ---
         fetch(scriptURL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', },
+            mode: 'no-cors', // <--- CAMBIO CLAVE: Solución para el error CORS
+            headers: {
+                // Con no-cors, Content-Type a veces puede causar problemas.
+                // Si SIGUE fallando, prueba a comentar la siguiente línea:
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify(payload)
         })
-        .then(response => {
-             if (!response.ok && response.type !== 'opaque' && response.type !== 'opaqueredirect') {
-                return response.json().then(errData => { throw new Error(errData.message || `Error ${response.status}`); });
-             }
-             if(response.type === 'opaque' || response.type === 'opaqueredirect') {
-                 return { result: 'success', message: `¡${entriesToSubmit.length} registros enviados! (Respuesta opaca)`};
-             }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Respuesta:', data);
-            mensajeDiv.textContent = data.message || `¡Procesamiento completado!`;
-            mensajeDiv.classList.add((data.result === 'error') ? 'error' : 'success');
+        .then(() => {
+            // Con 'no-cors', NO podemos leer la respuesta del script.
+            // Asumimos que el envío fue exitoso si no hubo error de red.
+            console.log('Solicitud enviada con no-cors.');
+            mensajeDiv.textContent = `Datos enviados. Verifica la Hoja de Google Sheets para confirmar.`;
+            mensajeDiv.classList.remove('error');
+            mensajeDiv.classList.add('success');
             mensajeDiv.style.display = 'block';
 
-            if (data.result !== 'error') {
-                quantityInputs.forEach(input => input.value = '');
-                const firstQtyInput = form.querySelector('.quantity-input');
-                if(firstQtyInput) firstQtyInput.focus();
-            }
+            // Limpiar campos de cantidad después del envío (asumiendo éxito)
+            const quantityInputs = form.querySelectorAll('.quantity-input');
+            quantityInputs.forEach(input => input.value = '');
+            const firstQtyInput = form.querySelector('.quantity-input');
+            if(firstQtyInput) firstQtyInput.focus();
+
         })
         .catch(error => {
-            console.error('Error en fetch!', error);
-            mensajeDiv.textContent = 'Error al enviar: ' + error.message;
+            // Captura errores de red fundamentales que puedan ocurrir ANTES de recibir respuesta.
+            console.error('Error en fetch (no-cors)!', error);
+            mensajeDiv.textContent = 'Error al enviar la solicitud: ' + error.message;
+            mensajeDiv.classList.remove('success');
             mensajeDiv.classList.add('error');
             mensajeDiv.style.display = 'block';
         })
         .finally(() => {
+            // Siempre rehabilitar el botón
             submitButton.disabled = false;
             submitButton.textContent = 'Guardar Todos los Registros';
         });
-    });
+    }); // Fin event listener submit
 
 </script>
 
